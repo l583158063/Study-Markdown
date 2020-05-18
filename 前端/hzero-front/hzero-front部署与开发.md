@@ -1,5 +1,4 @@
 HZERO-FRONT
----
 
 ### 一、环境配置
 
@@ -106,7 +105,7 @@ yarn start
 
 #### （3）全量编译
 
-```shell
+```bash
 # 进入父工程目录 sample
 yarn run build
 ```
@@ -159,15 +158,47 @@ CLIENT_ID: oauth 访问 客户端id
 
 
 
+#### （3）路由配置
+
+页面一般位于模块内，只需要关心模块内路由配置即可。
+
+路由配置路径 `根目录/packages/模块名/src/config/routers.ts` ，配置示例：
+
+```typescript
+import { RoutersConfig } from 'hzero-boot/lib/typings/IRouterConfig';
+
+const routerConfig: RoutersConfig = [
+  // Insert New Router
+  {
+    path: '/demo1/hello',
+    component: () => import('../routes/hello/HelloDemo1Page'),
+    authorized: true,
+    title: 'Hello JianQiaoFront Demo1',
+  },
+  {
+    // 路由
+    path: '/demo1/demo-page',
+    // 组件位置
+    component: () => import('../routes/hello/DemoPage'),
+    // 可直接通过路由访问
+    authorized: true,
+    // 页面标签标题
+    title: 'Sample Demo1',
+  }
+];
+
+export default routerConfig ;
+```
+
+
+
 ### 四、启动项目
 
-1. 按需修改     `../src/config/.env.yml` 中的环境变量
+1. 按需修改     `根目录/src/config/.env.yml` 中的环境变量
 2. 安装依赖     `lerna bootstrap --registry http://nexus.saas.hand-china.com/content/groups/hzero-npm-group/`
 3. 编译子模块   lerna run transpile
 4. 打包dll      yarn build:dll
 5. 启动本地环境  yarn start
-
-
 
 
 
@@ -294,14 +325,770 @@ mv dist html
 
 
 
-### 六、问题与解决
+### 六、菜单和权限配置
+
+- 创建菜单（子菜单）
+- 添加页面路由
+  - 对应 `根目录/packages/[modules]/src/config/routers.ts` 内的 `path` 属性。
+
+- 维护菜单权限
+- 角色管理
+- 测试页面
+
+
+
+### 七、DataSet 详解
+
+#### （1）API
+
+[DataSet API](https://choerodon.github.io/choerodon-ui/components-pro/data-set-cn/)
+
+#### （2）重点理解
+
+理解 DataSet、Field、Record 三个对象概念，明确需求以及使用场景下需要操作的对象及方法，就能很好的使用c7n-ui pro。
+
+![img](http://hzero-front-docs.hft.jajabjbj.top/img/docs/_assets/2019-10-16-01-12-23.png)
+
+- DataSet -- 数据源
+
+  基于 mobx 状态管理 Store 封装成的一个数据集
+
+  - field         字段属性数组
+  - records   所有记录
+  - data         数据（不包括删除状态的 Record） 
+
+- Field -- 字段
+- Record -- 记录（一般指当前操作的记录）
+
+
+
+#### （3）DataSet 文件示例说明
+
+![img](http://hzero-front-docs.hft.jajabjbj.top/img/docs/_assets/2019-10-16-01-12-26.png)
+
+- primaryKey、autoQuery、pageSize、name 等 -- DataSet 的 props 属性
+
+- fields -- 展示列的属性，可自定义如序号等仅供前端使用的字段
+- queryFields -- Table 上方查询字段，自动生成查询组件
+
+
+
+#### （4）DataSet.props.transport
+
+可自定义的 Axios 请求配置。重点关注 `read` 和 `submit` 属性，编写这两个适配器即可完成对表单的 CRUD 。
+
+| 属性       | 说明                                                         | 类型                                                         |
+| ---------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| create     | 新建请求的 axios 配置或 url 字符串                           | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| **read**   | 查询请求的 axios 配置或 url 字符串                           | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| update     | 更新请求的 axios 配置或 url 字符串                           | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| destroy    | 删除请求的 axios 配置或 url 字符串                           | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| validate   | 唯一性校验请求的 axios 配置或 url 字符串。当字段配了 unique 属性时，在当前数据集中没有重复数据的情况下，则会发起远程唯一性校验。校验的请求 data 格式为 { unique: [{fieldName1: fieldValue1,fieldName2: fieldValue2...}] }，响应格式为 boolean \| boolean[]。 | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| **submit** | create, update, destroy 的默认配置或 url 字符串。            | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| tls        | 多语言数据请求的 axios 配置或 url 字符串。UI 接收的接口返回值格式为：[{ name: { zh_CN: '简体中文', en_US: '美式英语', ... }}]， 其中 name 是字段名。请使用全局配置 transport 的 tls 钩子统一处理。 | AxiosRequestConfig \| ({ data, params, dataSet, record, name }) => AxiosRequestConfig \| string |
+| exports    | 导出的配置或 url 字符串                                      | AxiosRequestConfig \| ({ data, params, dataSet }) => AxiosRequestConfig \| string |
+| adapter    | CRUD 配置适配器                                              | (config: AxiosRequestConfig, type: string) => AxiosRequestConfig |
+
+##### AxiosRequestConfig
+
+![AxiosRequestConfig](D:\Documents\Study-Markdown\前端\hzero-front\AxiosRequestConfig.png)
+
+DataSet 默认请求为 `POST` 方法，可修改上述配置中的 `method` 属性切换。
+
+
+
+### 八、使用 DataSet 与后端交互（查询）
+
+#### （1）配置 DataSet 文件 -- transport.read
+
+```javascript
+// import ...
+
+export default () => new DataSet({
+  // 自动查询
+  autoQuery: true,
+  
+  transport: {
+    // 查询接口配置
+    read: (config: AxiosRequestConfig): AxiosRequestConfig => {
+      // 返回 axiosConfig 对象
+      return {
+        // config 对象中的所有参数
+        ...config,
+        // 请求接口地址
+        url: `${
+          commonConfig.TODO_API
+          }/v1/${getCurrentOrganizationId()}/tasks`,
+        // 请求方式
+        method: 'GET',
+      };
+    },
+    // {submit}
+  },
+  
+  // 分页大小
+  pageSize: 2,
+  // 复选框
+  selection: 'multiple' as DataSetSelection,
+  // 数据表主键
+  primaryKey: 'id',
+      
+  // 展示列属性定义（后端返回字段格式）
+  /**
+   * name: 列名定义
+   * label: 前端展示文字
+   * type: 数据类型
+   * lovCode: 值集视图编码，配置以后可弹出值集视图选择框
+   * lookupCode: 值集编码，配置以后自动展示 *下拉列表*
+   * ignore: 是否作为参数传递
+   * required: 是否必输
+   * bind: 绑定 object 类型的 field 的某一个字段传输给后端
+   * pattern: 校验正则表达式
+   * defaultValidationMessages: 校验不通过默认提示
+   */
+  fields: [
+    {
+      name: 'employeeObject',
+      label: '员工',
+      type: 'object' as FieldType,
+      lovCode: 'TODO.USER',
+      ignore: 'always' as FieldIgnore,
+      required: true,
+    },
+    {
+      name: 'employeeId',
+      label: '员工ID',
+      type: 'number' as FieldType,
+      bind: 'employeeObject.id',
+    },
+    {
+      name: 'employeeName',
+      label: '员工姓名',
+      type: 'string' as FieldType,
+      bind: 'employeeObject.employeeName',
+    },
+    {
+      name: 'employeeNumber',
+      label: '员工编号',
+      type: 'string' as FieldType,
+      bind: 'employeeObject.employeeNumber',
+    },
+    {
+      name: 'state',
+      label: '任务状态',
+      type: 'string' as FieldType,
+      lookupCode: 'TODO.TODO_STATE',
+      required: true,
+    },
+    {
+      name: 'taskNumber',
+      label: '任务编号',
+      type: 'string' as FieldType,
+      required: true,
+      pattern: /^[\dA-Z]*$/,
+      defaultValidationMessages: {
+        patternMismatch: '只能输入大写字母和数字, 例如: A123', // 正则不匹配的报错信息
+      }
+    },
+  ],
+  
+  // 查询列属性定义（前端传给后端参数）
+  queryFields: [
+    {
+      name: 'employeeObject',
+      label: '员工',
+      type: 'object' as FieldType,
+      lovCode: 'TODO.USER',
+      ignore: 'always' as FieldIgnore,
+    },
+    {
+      name: 'employeeId',
+      label: '员工ID',
+      type: 'number' as FieldType,
+      bind: 'employeeObject.id',
+    },
+    {
+      name: 'employeeName',
+      label: '员工姓名',
+      type: 'string' as FieldType,
+      bind: 'employeeObject.employeeName',
+    },
+    {
+      name: 'state',
+      label: '任务状态',
+      type: 'string' as FieldType,
+      lookupCode: 'TODO.TODO_STATE',
+    },
+  ],
+});
+```
+
+
+
+#### （2）页面 Table 和 DataSet 结合
+
+```javascript
+// import ...
+import TodoDS from 'xxx';
+
+const HelloWorldPage: React.FC = () => {
+
+  /* const tableDS = new DataSet({
+    ...TodoDS(),
+  }) */
+  /* const tableDS = useDataSet(todoTableDataFactory, HelloWorldPage); */
+  const tableDS = TodoDS();
+  const currentPage = useDataSetCurrentPage(tableDS);
+  const isSelected = useDataSetIsSelected(tableDS);
+  useDataSetEvent(tableDS, 'load', () => {
+    // tslint:disable-next-line: no-console
+    console.log('数据加载完成！');
+  });
+
+  // 定义 Table 需要展示的列
+  const columns: ColumnProps[] = [
+    { name: 'taskNumber', width: 320, editor: true },
+    { name: 'taskDescription', editor: true },
+    { name: 'state', editor: true },
+    { name: 'employeeObject', editor: true },
+  ];
+
+  // 定义 Table 表头按钮
+  const buttons = [
+    TableButtonType.add,
+    'delete' as Buttons,
+  ];
+
+  return (
+    <>
+      <Header title='Hello World'>
+        {/* DataSet 主按钮：提交 */}
+        <Button
+          color={'primary' as ButtonColor}
+          onClick={() => tableDS.submit()}
+        >
+          提交
+        </Button>
+      </Header>
+      <Content >
+        <Table
+          queryFieldsLimit={3}
+          dataSet={tableDS}
+          queryFields={{
+            state2: <SelectBox mode={ViewMode.button} />
+          }}
+          columns={columns}
+          buttons={buttons}
+          pagination={{
+            showQuickJumper: true,
+            // pageSize: 20,
+            pageSizeOptions: ['20', '40'],
+            // page: 4,
+          }}
+        />
+        <pre>
+          当前在第 {currentPage} 页
+        </pre>
+        <p>{isSelected ? '当前勾选了数据' : '当前没有勾选数据'}</p>
+        <p>css modules 测试: <span className={styles['test-cls']}>{styles['test-cls']}</span></p>
+      </Content>
+    </>
+  );
+};
+
+export default HelloWorldPage;
+```
+
+
+
+### 九、使用 DataSet 与后端交互（增删改）
+
+#### （1）配置 DataSet transport 实现增删改
+
+1. ##### 使用单独的 create + delete + update
+
+   在 `transport` 属性中单独编写这三个属性对应的函数（声明接口 url 和 params 等），并通过 DataSet 对象调用自身的 create、delete、update，如 `tableDS.update()` ，DataSet 会经过一些处理后调用对应接口（多次调接口）。
+
+2. ##### 使用数据由状态控制的 submit（常用）
+
+   操作 DataSet 的数据不会马上调用接口，而是给数据的 `_status` 属性打上标记，点击提交后触发接口调用，后端批量处理。
+
+```javascript
+transport: {
+  submit: ({ data, params }): AxiosRequestConfig => {
+    return {
+      url: `${
+        commonConfig.TODO_API
+        }/v1/${getCurrentOrganizationId()}/tasks/submit`,
+      data,
+      params,
+      method: 'POST',
+    };
+  },
+},
+```
+
+```javascript
+// 调用时：
+const res = await tableDS.submit();
+// 返回值为 undefined 表示未作修改，此时不会调用接口
+if (undefined === res) {
+  notification.warning({
+    message: '请先修改数据',
+  });
+  return;
+} else if (res && res.failed && res.message) {
+  notification.error({
+    message: res.message,
+  });
+  throw new Error(res);
+} else {
+  // 提交后操作成功，自动查询
+  await tableDS.query();
+}
+```
+
+
+
+#### （2）页面交互逻辑
+
+1. 使用 Table 内置按钮
+2. 自定义 Table 操作按钮
+
+```javascript
+// 定义 Table 表头按钮
+const buttons = [
+  // 内置按钮 -- 新增
+  TableButtonType.add,
+  // 内置按钮 -- 删除
+  'delete' as Buttons,
+  // 自定义按钮
+  <Button
+    key="create-field"
+    icon="playlist_add"
+    color="primary"
+    funcType="flat"
+    onClick={() => { addLine() }}
+  >
+    自定义新增
+  </Button>,
+];
+
+const addLine = () => {
+  tableDS.create({}, 0);
+}
+```
+
+3. 自定义 Table 行操作
+
+```javascript
+// 定义 Table 需要展示的列
+const columns: ColumnProps[] = [
+  { name: 'taskNumber', width: 320, editor: true },
+  { name: 'taskDescription', editor: true },
+  { name: 'state', editor: true },
+  { name: 'employeeObject', editor: true },
+  { /* 自定义的操作列 */
+    header: '操作',
+    width: 150,
+    command: ({ record }) => {
+      const state = record.get('state');
+      return [
+        TableButtonType.delete,
+        <Button
+          key="delete-value"
+          icon="delete"
+          color="red"
+          funcType="flat"
+          onClick={() => tableDS.remove(record)}
+        />,
+        <Tooltip title="撤回">
+          <Button
+            key="replay"
+            icon="replay"
+            title="abcd"
+            disabled={state !== 'CODE_3'}
+            funcType="flat"
+            onClick={() => handleReStart([record])}
+          />
+        </Tooltip>
+      ]
+    }
+  }
+];
+```
+
+
+
+### 十、DataSet 实现校验控制
+
+#### （1）保存之后的数据不可变更 taskNumber
+
+```javascript
+  fields: [
+    {
+      name: 'taskNumber',
+      label: '任务编号',
+      type: 'string',
+      required: true,
+      pattern: /^[\dA-Z]*$/,
+      defaultValidationMessages: {
+        patternMismatch: '只能输入大写字母和数字, 例如: A123', // 正则不匹配的报错信息
+      },
+      dynamicProps: {
+        // 非新增行要设置为只读
+        readOnly: ({ record }) => {
+          //   return record.get('id');
+          return record.status !== 'add';
+        },
+      },
+    },
+  ],
+```
+
+
+
+#### （2）完成状态的待办事项详情页不可编辑
+
+通过对 `<Form>` 组件的属性 `pristine` 或 `disabled` 设置 true/false 完成，`pristine = true` 显示原始值，`disabled = true` 禁用表单。
+
+```javascript
+<Form pristine={this.state.readOnly} dataSet={this.detailDS} columns={3}>
+  {/* 表单内容 */}
+</Form>
+```
+
+
+
+#### （3）列表页根据不同状态显示不同颜色
+
+```javascript
+get columns() {
+  return [
+    { name: 'taskNumber', width: 320, editor: true },
+    { name: 'taskDescription', editor: true },
+    { name: 'state', editor: true },
+    { name: 'employeeObject', editor: () => <Lov noCache /> },
+    {
+      header: '自定义列',
+      width: 150,
+      // 自定义渲染条件判断
+      renderer: ({ record }) => {
+        // console.log(record.get('taskDescription'));
+        let color = 'gray';
+        const state = record.get('state');
+        if (state === 'CODE_1') {
+          color = 'purple';
+        } else if (state === 'CODE_2') {
+          color = 'green';
+        } else if (state === 'CODE_3') {
+          color = 'dark';
+        }
+        return (
+          <Button
+            
+            color={color}
+        
+            onClick={() => {
+              this.gotoDetailPage(record, { otherField: 'test', rand: Math.random() });
+            }}
+          >
+            ##{record.get('taskDescription')}##
+          </Button>
+        );
+      },
+      lock: 'right',
+      align: 'center',
+    },
+  ];
+}
+```
+
+
+
+#### （4）进行中状态的待办事项，可设置进度
+
+```javascript
+// 增加监听：页面发生修改时触发
+componentWillUnmount() {
+  this.detailDS.removeEventListener('update', this.handleChange);
+}
+
+// 当修改的 field = 'state' 且 state = '进行中' 时显示进度条
+@Bind()
+handleChange({ name, value }) {
+  if (name === 'state') {
+    if (value === 'CODE_2') {
+      this.setState({
+        percentVisible: true,
+      });
+    } else {
+      this.setState({
+        percentVisible: false,
+      });
+    }
+  }
+}
+```
+
+
+
+#### （5）假设数据不做分页，每个人最多只能存在一个进行中待办事项
+
+通过 SQL 值集查询时用条件语句限制查询结果即可。
+
+
+
+#### （6）如何使用表单自定义校验
+
+1. **字段值属性校验**，编写 `DataSet.field.validator` 属性，当返回值为 false 或 涵盖错误信息的字符串，则为校验失败：
+
+```javascript
+fields: [
+  {
+    name: 'taskDescription',
+    label: '任务描述',
+    type: 'string',
+    required: true,
+    // (value, name, record) => boolean | string | undefined
+    validator: value => {
+      if (value && value.length <= 5) {
+        return '长度必须超过5个字符';
+      }
+    },
+  },
+],
+```
+
+2. **字段正则表达式校验**，编写 `DataSet.field.pattern` 以及 `DataSet.field.defaultValidationMessages` ：
+
+```javascript
+fields: [
+  {
+    name: 'taskNumber',
+    label: '任务编号',
+    type: 'string',
+    required: true,
+    pattern: /^[\dA-Z]*$/,
+    defaultValidationMessages: {
+      patternMismatch: '只能输入大写字母和数字, 例如: A123', // 正则不匹配的报错信息
+    },
+    dynamicProps: {
+      // 非新增行要设置为只读
+      readOnly: ({ record }) => {
+        //   return record.get('id');
+        return record.status !== 'add';
+      },
+    },
+  },
+],
+```
+
+> 默认校验值 defaultValidationMessages 详见 [ValidationMessages](https://choerodon.github.io/choerodon-ui/components/configure-cn/#ValidationMessages)
+
+
+
+### 十一、DataSet.children 关联级联行数据集
+
+![](D:\Documents\Study-Markdown\前端\hzero-front\DataSet Props children.png)
+
+- todoList -- 自定义的 key
+- children 可以关联多个子 DataSet
+
+- 可以为子 DataSet 设置查询参数：
+
+```javascript
+@Bind()
+async refreshPage() {
+  this.detailDS.queryParameter = {
+    employeeNumber: this.props.match.params.id,
+  };
+  this.childrenDS1.queryParameter = {
+    employeeNumber: this.props.match.params.id,
+  };
+  await this.detailDS.query();
+}
+```
+
+- 页面可以再新增一个 `<Table>` 展示子集
+
+
+
+### 十二、页面间跳转和通信
+
+#### （1）列表页和详情页间跳转
+
+1. 自定义跳转按钮
+
+```javascript
+get columns() {
+  return [
+    {
+      header: '操作',
+      width: 150,
+      align: 'center',
+      renderer: ({ record }) => {
+        return (
+          <Button 
+            onClick={() => this.handleGotoDetail(record)}
+          >
+            跳转详情 {record.get('taskNumber')}
+          </Button>
+        );
+      }
+    }
+  ];
+}
+```
+
+2. 实现跳转方法，调用 dispatch 函数
+
+```javascript
+@Bind()
+handGotoDetail(record, otherData) {
+  const { dispatch } = this.props;
+  const pathname = record
+    ? `/todo-module/todo-feature/detail/${record.get('taskNumber')}`
+    : '/todo-module/todo-feature/create';
+  dispatch(
+    routerRedux.push({
+      pathname,
+      search:
+        otherData &&
+        querystring.stringify({
+          otherData: encodeURIComponent(JSON.stringify(otherData)),
+        }),
+    })
+  );
+}
+```
+
+3. 更新路由
+
+```javascript
+const routerConfig: RoutersConfig = [
+  // Insert New Router
+  {
+    path: '/todo-module/todo-feature',
+    components: [
+      {
+        path: '/todo-module/todo-feature/list',
+        component: 'todo/list/TodoListPage',
+      },
+      {
+        path: '/todo-module/todo-feature/create',
+        component: 'todo/detail/TodoDetailPage',
+      },
+      {
+        // 带有 taskNumber 参数的详情页
+        path: '/todo-module/todo-feature/detail/:taskNumber',
+        component: 'todo/detail/TodoDetailPage',
+      },
+    ],
+  },
+];
+export default routerConfig;
+```
+
+获取 `pathVariable` ：`this.props.match.params.taskNumber`
+
+4. 更改菜单配置
+
+在对应菜单中将原来设置的路由改为不带确定页面的 `/todo-module/todo-feature` ，进入菜单后会自动重定向至 `components` 数组的**第一个**组件。
+
+5. 编写详情页
+
+一般在 `async componentDidMount()` 函数中添加监听、处理创建/查询逻辑、获取上个页面传来的数据以及处理保存事件等。
+
+`backPath` 属性可以指定返回的页面路由。
+
+```javascript
+<Header title="待办事项明细" backPath="/todo-module/todo-feature/list">
+```
+
+
+
+#### （2）两个页面跳转需要携带大量数据如何处理
+
+1. 传递配置
+
+比如想要通过 `/todo-module/todo-feature/detail/1?a=1&b=2` 路由传递数据。在上文 `handGotoDetail` 函数的 `dispatch` 属性中配置 `search` 属性，需要注意进行编码转换，保证所有需要的字符不被浏览器误认为关键字处理。
+
+```javascript
+@Bind()
+gotoDetailPage(record, extData) {
+  const { dispatch } = this.props;
+  const pathname = record
+    ? `/todo-module/todo-feature/detail/${record.get('taskNumber')}`
+    : '/todo-module/todo-feature/create';
+  dispatch(
+    routerRedux.push({
+      pathname,
+      search:
+        extData &&
+        querystring.stringify({
+          otherData: encodeURIComponent(JSON.stringify(extData)),
+        }),
+    })
+  );
+}
+```
+
+
+
+2. 接收与使用
+
+传递过来的数据可以在 `this.props.location.search` 中读取并解析，并放入 `state` 中：
+
+```javascript
+// 初始化 state
+state = {};
+
+// ...
+
+async componentDidMount() {
+  const { search } = this.props.location;
+  // 浏览器自带的解析参数对象
+  const otherDataQueryStr = new URLSearchParams(search).get('otherData');
+  if (otherDataQueryStr) {
+    const otherData = JSON.parse(decodeURIComponent(otherDataQueryStr));
+    // console.log('拿到上个页面传过来的参数：', otherData);
+    this.setState({
+      receiveData: otherData,
+    });
+  }
+}
+```
+
+
+
+#### （3）如何获取 dva 中的数据
+
+dva 保存了当前页面的 state 等数据，可以从这获取诸如当前登录用户 currentUser 信息等。取出后会注入当前页面的 `props` 中。
+
+```javascript
+// 入参为整个 state
+@connect(({ user }) => {
+  return {
+    userName: user.currentUser.realName,
+  }
+})
+export default class DetailPage extends PureComponent {
+    console.log(this.props.userName);
+};
+```
+
+
+
+### 问题与解决
 
 #### （1）本地可以访问前端而同一局域网内的机器无法访问
 
-跳转到错误页面`/exception/500`，错误信息如下：
+跳转到错误页面 `/exception/500` ，错误信息如下：
 
 【火狐浏览器】已拦截跨源请求：同源策略禁止读取位于 http://dev.hzero.org:8080/iam/hzero/v1/users/self 的远程资源。（原因：CORS 请求未能成功）。
 
 【谷歌浏览器】连接超时。
 
 解决：需要将项目 build 生成的 `dist` 文件夹下的所有文件放入 `/usr/share/nginx/html` (服务器部署目录) ，并替换环境变量。
+
