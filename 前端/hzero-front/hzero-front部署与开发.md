@@ -529,11 +529,11 @@ export default () => new DataSet({
 
 ```javascript
 // import ...
-import TodoDS from 'xxx';
+import TodoDS from 'xxx.js';
 
 const HelloWorldPage: React.FC = () => {
 
-  /* const tableDS = new DataSet({
+  /* tableDS = new DataSet({
     ...TodoDS(),
   }) */
   /* const tableDS = useDataSet(todoTableDataFactory, HelloWorldPage); */
@@ -687,7 +687,7 @@ const columns: ColumnProps[] = [
   { name: 'taskNumber', width: 320, editor: true },
   { name: 'taskDescription', editor: true },
   { name: 'state', editor: true },
-  { name: 'employeeObject', editor: true },
+  { name: 'employeeObject', editor: () => <Lov noCache /> },
   { /* 自定义的操作列 */
     header: '操作',
     width: 150,
@@ -895,11 +895,25 @@ fields: [
 - todoList -- 自定义的 key
 - children 可以关联多个子 DataSet
 
+```javascript
+childrenDS1 = new DataSet({
+  autoQuery: false,
+  ...TodoDS(),
+});
+
+detailDS = new DataSet({
+  autoQuery: false,
+  ...UserDS(),
+  children: {
+    todoList: this.childrenDS1,
+  },
+});
+```
+
 - 可以为子 DataSet 设置查询参数：
 
 ```javascript
-@Bind()
-async refreshPage() {
+async componentDidMount() {
   this.detailDS.queryParameter = {
     employeeNumber: this.props.match.params.id,
   };
@@ -1000,6 +1014,14 @@ export default routerConfig;
 
 一般在 `async componentDidMount()` 函数中添加监听、处理创建/查询逻辑、获取上个页面传来的数据以及处理保存事件等。
 
+```javascript
+async componentDidMount() {
+  // 前提 props 接口中声明 match: any
+  this.detailDS.queryParameter.taskNumber = this.props.match.params.taskNumber;
+  await this.detailDS.query();
+}
+```
+
 `backPath` 属性可以指定返回的页面路由。
 
 ```javascript
@@ -1091,4 +1113,197 @@ export default class DetailPage extends PureComponent {
 【谷歌浏览器】连接超时。
 
 解决：需要将项目 build 生成的 `dist` 文件夹下的所有文件放入 `/usr/share/nginx/html` (服务器部署目录) ，并替换环境变量。
+
+
+
+#### （2）DataSet field.type = 'object' 无法自动填充值集视图
+
+```javascript
+fields: [
+  {
+    name: 'categoryObject',
+    label: '商品类型',
+    type: 'object',
+    lovCode: 'JIANQIAO.PRODUCT_CATEGORY',
+    ignore: 'always',
+    required: true,
+  },
+  {
+    name: 'categoryId',
+    label: '商品类型ID',
+    type: 'number',
+    bind: 'categoryObject.categoryId',
+  },
+  {
+    name: 'categoryCode',
+    label: '商品类型编码',
+    type: 'string',
+    bind: 'categoryObject.categoryCode',
+    ignore: 'always',
+  },
+  {
+    name: 'categoryName',
+    label: '商品类型名称',
+    type: 'string',
+    bind: 'categoryObject.categoryName',
+    ignore: 'always',
+  },
+],
+```
+
+后端回传 productSpu 只有 `categoryId` ，缺少  `categoryCode` 和 `categoryName` 数据，因此需要添加非数据库字段并返回对应值：
+
+```java
+@Transient
+private String categoryCode;
+@Transient
+private String categoryName;
+```
+
+
+
+#### （3）tsx 与 js 用法区别
+
+1. ##### 属性匹配问题
+
+由以下对比可见一斑。
+
+```typescript
+// ts
+get columns(): ColumnProps[] {
+  return [
+    {
+      header: '查看',
+      renderer: ({ record }) => {
+        return (
+          <Button onClick={() => this.handleGotoDetail(record)}>
+            详情
+          </Button>
+        );
+      },
+      lock: ColumnLock.right,
+      align: ColumnAlign.center,
+    },
+  ];
+}
+```
+
+```javascript
+// js
+get columns(): {
+  return [
+    { name: 'isActive', editor: true, align: 'center', lock: 'right', },
+  ];
+}
+```
+
+2. ##### React props
+
+TS 参考 https://www.jianshu.com/p/9897c11f74b9 。
+
+当我们想要使用如图所示 props 而直接在代码中编写如 `this.props.match` 等，将会被警告当前 props 中没有该属性，直接读取返回 `undefined` 。
+
+![React Props](D:\Documents\Study-Markdown\前端\hzero-front\React Props.png)
+
+TS + React 需要先编写 props 接口，在接口中声明将要使用的属性数据：
+
+```typescript
+import React, { Component } from 'react';
+import { Dispatch } from 'redux';
+import { connect } from 'dva';
+
+// 声明 props 接口
+interface ProductSpuDetailPageProps {
+  dispatch: Dispatch<any>;
+  // 想要使用 match，要先声明
+  match: any;
+}
+
+// (alias) class Component<P = {}, S = {}, SS = any> 
+// 其中 P --> props, S --> state, SS --> setState
+@connect()
+export default class ProductSpuDetailPage extends Component<ProductSpuDetailPageProps> {
+  async componentDidMount() {
+    this.match = this.props.match;
+    console.log(this.match.params);
+  }
+}
+```
+
+**常用 props 属性：**
+
+- match.params -- route 上的 pathVariable
+
+- location.search -- 请求报文内携带的 data
+
+
+
+#### （4）读取环境变量
+
+默认读取最外层环境变量： `process.env.XXX` 。例如自定义 Axios 请求时访问域名可用：
+
+```javascript
+const url = `${process.env.API_HOSE}${commonConfig.XXX}/v1/xxx`;
+```
+
+
+
+#### （5）组装 headers.Authorization 并自定义 Axios 请求
+
+```typescript
+import { getAccessToken } from 'utils/utils';
+import { DataSet, Axios, } from 'choerodon-ui/pro';
+
+const accessToken = getAccessToken();
+const headers = {
+  Authorization: '',
+};
+if (accessToken) {
+  headers.Authorization = `bearer ${accessToken}`;
+}
+
+const url = `${process.env.API_HOST}${commonConfig.HJQG_BACKEND}/v1/product-spus/on-shelf`;
+
+const axiosConfig = {
+  headers: headers,
+  params: {
+    isOnShelf: isOnShelf,
+  },
+};
+
+Axios
+  .post(url, productSpuIds, axiosConfig)
+  .then(response => {
+    console.log('response: ' + response);
+    notification.success({
+      message: '操作成功',
+      description: '',
+    });
+  })
+  .catch(error => {
+    console.log('error: ' + error);
+    notification.error({
+      message: '操作失败',
+      description: '',
+    })
+  });
+```
+
+`Axios.post(url, data, axiosConfig)` 其中 `data` 会默认自动转换成 Json 格式数据，直接使用 `dataSet.current` 会造成字段闭环，无法生成 Json ，**必须使用 `dataSet.current.toData()` 进行数据提取转换**。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
